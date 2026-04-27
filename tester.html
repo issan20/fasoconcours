@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tester mes connaissances - FasoConcours</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<button id="btnQuitQuiz" class="quit-quiz-btn" type="button">Quittez le quiz</button>
+
+<header>
+    <div class="header-left">
+        <a href="index.html" class="logo-link"><img src="assets/logofasoconcours.png" class="logo" alt="logo"></a>
+    </div>
+    <div class="header-center">
+        <h1>FasoConcours</h1>
+        <nav>
+            <a href="index.html">Accueil</a>
+            <a href="se-former.html">Se former</a>
+            <a href="tester.html" class="active">Tester mes connaissances</a>
+        </nav>
+    </div>
+    <div class="header-right">
+        <div class="header-corner-auth">
+            <a href="auth.html?mode=login&return=tester.html">Connexion</a>
+            <span>/</span>
+            <a href="auth.html?mode=signup&return=tester.html">Inscription</a>
+        </div>
+    </div>
+</header>
+
+<section class="hero">
+    <h2>📚 Testez vos connaissances</h2>
+    <p class="hero-intro-home">Mettez en pratique vos connaissances avec des QCM ciblés par thématique, examens blancs réalistes et corrections détaillées. Mesurez votre progression et identifiez vos points d'amélioration.</p>
+</section>
+
+<section class="quiz-section" style="padding: 20px; max-width: 1200px; margin: 0 auto;">
+    <div style="text-align: center;">
+        <button id="btnAccesQuiz" class="primary-btn" style="background: #0a7f3f; color: white; padding: 15px 30px; font-size: 18px; border: none; border-radius: 8px; cursor: pointer;">
+            🔓 Accéder aux quiz et examens
+        </button>
+    </div>
+    
+    <div id="quizInterface" style="display: none; margin-top: 30px;">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <button id="btnQuizThematique" class="quiz-mode-btn" style="background: #2196f3; color: white; padding: 12px 25px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
+                🧭 Ouvrir les rubriques de quiz
+            </button>
+        </div>
+        
+        <div id="quizContent" style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <p style="text-align: center; color: #666;">✨ Cliquez sur le bouton ci-dessus pour voir les 5 rubriques ✨</p>
+        </div>
+    </div>
+</section>
+
+<script src="js/app.js?v=20260424e"></script>
+<script src="js/quiz-data-monde.js?v=20260424d"></script>
+<script src="js/quiz-data-divers.js?v=20260425a"></script>
+<script src="js/quiz-data.js?v=20260425a"></script>
+
+<script>
+    // Attendre que le DOM soit chargé
+    document.addEventListener("DOMContentLoaded", function() {
+        console.log("✅ tester.html chargé");
+        
+        // Récupérer les éléments
+        const btnAcces = document.getElementById("btnAccesQuiz");
+        const quizInterface = document.getElementById("quizInterface");
+        const btnQuiz = document.getElementById("btnQuizThematique");
+        const btnQuitQuiz = document.getElementById("btnQuitQuiz");
+        const quizContent = document.getElementById("quizContent");
+
+        function updateQuizFocusMode() {
+            if (!quizContent) {
+                document.body.classList.remove('quiz-focus-mode');
+                return;
+            }
+
+            const hasQuestion = !!quizContent.querySelector('.quiz-question');
+            const hasCorrection = !!quizContent.querySelector('.correction-card, .quiz-score');
+            const hasSelectionGrid = !!quizContent.querySelector('.thematiques-grid, .rubriques-grid, .theme-card, .rubrique-card');
+            const shouldFocus = (hasQuestion || hasCorrection) && !hasSelectionGrid;
+
+            document.body.classList.toggle('quiz-focus-mode', shouldFocus);
+        }
+
+        if (quizContent) {
+            const quizObserver = new MutationObserver(updateQuizFocusMode);
+            quizObserver.observe(quizContent, { childList: true, subtree: true });
+        }
+
+        function ouvrirQuizSansBlocage() {
+            if (quizInterface) {
+                quizInterface.style.display = "block";
+            }
+            if (typeof showQuizThematique === 'function') {
+                showQuizThematique();
+            } else if (quizContent) {
+                quizContent.innerHTML = '<p style="text-align:center; color:#b71c1c;">Le module quiz n\'est pas chargé. Rechargez la page.</p>';
+            }
+        }
+
+        window.openQuizDirect = ouvrirQuizSansBlocage;
+        window.openQuizSansBlocage = ouvrirQuizSansBlocage;
+        window.openQuizThematic = ouvrirQuizSansBlocage;
+
+        // Bouton d'accès principal
+        if (btnAcces) {
+            btnAcces.onclick = function(event) {
+                event.preventDefault();
+                if (typeof accessWithCode === 'function') {
+                    accessWithCode('quiz');
+                } else {
+                    // Fallback if app.js is not ready: show quiz surface if session allows.
+                    const savedOffre = localStorage.getItem("fasoconcours_offre");
+                    const savedExpiration = localStorage.getItem("fasoconcours_expiration");
+                    const expDate = savedExpiration ? new Date(savedExpiration) : null;
+                    if ((savedOffre === 'quiz' || savedOffre === 'complet') && expDate && expDate > new Date()) {
+                        ouvrirQuizSansBlocage();
+                    } else {
+                        alert("Le module d'accès n'est pas prêt. Rechargez la page puis réessayez.");
+                    }
+                }
+            };
+        }
+        
+        // Vérifier périodiquement si l'utilisateur est connecté
+        function checkAndShowQuizInterface() {
+            if (quizInterface) {
+                // Vérifier si l'utilisateur a un accès actif
+                const savedEmail = localStorage.getItem("fasoconcours_email");
+                const savedOffre = localStorage.getItem("fasoconcours_offre");
+                const savedExpiration = localStorage.getItem("fasoconcours_expiration");
+                
+                if (savedEmail && savedOffre && savedExpiration) {
+                    const expDate = new Date(savedExpiration);
+                    if (expDate > new Date()) {
+                        if (savedOffre === 'quiz' || savedOffre === 'complet') {
+                            quizInterface.style.display = "block";
+                            console.log("✅ Accès quiz autorisé");
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Vérifier au chargement
+        checkAndShowQuizInterface();
+        updateQuizFocusMode();
+        
+        // Écouter les changements de localStorage
+        window.addEventListener('storage', function(e) {
+            if (e.key && e.key.startsWith('fasoconcours_')) {
+                checkAndShowQuizInterface();
+            }
+        });
+        
+        // Bouton Quiz par thématique
+        if (btnQuiz) {
+            btnQuiz.onclick = function(event) {
+                event.preventDefault();
+                ouvrirQuizSansBlocage();
+            };
+        }
+
+        if (btnQuitQuiz) {
+            btnQuitQuiz.onclick = function() {
+                const ok = window.confirm("Voulez-vous vraiment quitter le quiz ?");
+                if (!ok) return;
+
+                if (typeof showQuizThematique === 'function') {
+                    showQuizThematique();
+                }
+                document.body.classList.remove('quiz-focus-mode');
+            };
+        }
+        
+    });
+</script>
+
+<style>
+    .primary-btn {
+        transition: transform 0.2s, background 0.2s;
+    }
+    .primary-btn:hover {
+        transform: translateY(-2px);
+        background: #086c35 !important;
+    }
+    .quiz-mode-btn {
+        transition: transform 0.2s, opacity 0.2s;
+    }
+    .quiz-mode-btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
+    }
+
+    .quit-quiz-btn {
+        display: none;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 3000;
+        border: none;
+        background: #c62828;
+        color: #fff;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    }
+
+    .quit-quiz-btn:hover {
+        background: #b71c1c;
+    }
+
+    body.quiz-focus-mode {
+        background: #ffffff;
+    }
+
+    body.quiz-focus-mode .quit-quiz-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    body.quiz-focus-mode header,
+    body.quiz-focus-mode .hero,
+    body.quiz-focus-mode .site-footer,
+    body.quiz-focus-mode #btnAccesQuiz,
+    body.quiz-focus-mode #quizInterface > div:first-child {
+        display: none !important;
+    }
+
+    body.quiz-focus-mode .quiz-section {
+        max-width: 920px !important;
+        margin: 0 auto !important;
+        padding: 10px 12px !important;
+    }
+
+    body.quiz-focus-mode #quizInterface {
+        display: block !important;
+        margin-top: 0 !important;
+    }
+
+    body.quiz-focus-mode #quizContent {
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        padding: 12px !important;
+    }
+</style>
+
+<footer class="site-footer">
+    <div class="footer-row">
+        <p><strong>Contact:</strong> +226 65475827</p>
+        <p><strong>E-mail:</strong> issandavidi@gmail.com</p>
+    </div>
+    <div class="footer-links">
+        <a href="termes.html">Termes et conditions d'utilisation</a>
+        <a href="confidentialite.html">Politique de confidentialité</a>
+        <a href="mentions-legales.html">Mentions légales</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 FasoConcours - Tous droits réservés.</p>
+</footer>
+
+</body>
+</html>
