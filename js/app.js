@@ -833,6 +833,8 @@ async function checkExistingSession() {
     } catch (err) {
         console.error("❌ Erreur lors de la vérification de session:", err);
     }
+    // Afficher le statut même si aucune session restaurée (utile sur mobile)
+    try { showAccessStatus(); } catch (e) { /* ignore */ }
 }
 
 function showAccessStatus() {
