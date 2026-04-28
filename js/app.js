@@ -961,11 +961,12 @@ async function signup() {
         }
 
         currentUser.email = email;
-        localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
+        // Ne pas marquer l'utilisateur comme connecté automatiquement —
+        // demander la confirmation par e-mail (évite la confirmation manuelle dans Supabase)
         localStorage.setItem(AUTH_EMAIL_KEY, email);
 
-        alert('✅ Inscription réussie ! Vous pouvez maintenant vous connecter.');
-        // Rediriger vers la page de connexion
+        alert(`✅ Inscription réussie ! Un e‑mail de confirmation a été envoyé à ${email}.\nVeuillez confirmer votre adresse en cliquant sur le lien reçu (vérifiez le dossier Spam). Ensuite, connectez-vous.`);
+        // Rediriger vers la page de connexion (email pré-rempli)
         const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
         location.href = `auth.html?mode=login&return=${encodeURIComponent(returnUrl)}`;
     } catch (err) {
