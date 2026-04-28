@@ -790,30 +790,48 @@ function showPreview() {
 // SESSION
 // =======================
 async function checkExistingSession() {
-    const authLogged = localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true';
-    const authEmail = localStorage.getItem(AUTH_EMAIL_KEY);
-
-    if (authLogged && authEmail) {
-        currentUser.email = authEmail;
+    if (!supabaseClient) {
+        console.warn("⚠️ Supabase non initialisé");
+        return;
     }
 
-    const savedEmail = localStorage.getItem("fasoconcours_email");
-    const savedOffre = localStorage.getItem("fasoconcours_offre");
-    const savedExpiration = localStorage.getItem("fasoconcours_expiration");
-    
-    if (savedEmail && savedOffre && savedExpiration) {
-        const expDate = new Date(savedExpiration);
-        if (expDate > new Date()) {
-            currentUser.email = savedEmail;
-            currentUser.offre = savedOffre;
-            currentUser.expiration = expDate;
-            showAccessStatus();
-            console.log("✅ Session restaurée");
-        } else {
-            localStorage.removeItem("fasoconcours_email");
-            localStorage.removeItem("fasoconcours_offre");
-            localStorage.removeItem("fasoconcours_expiration");
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        if (error) {
+            console.warn("⚠️ Erreur vérification session:", error.message);
+            return;
         }
+        
+        if (session && session.user) {
+            currentUser.email = session.user.email;
+            localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
+            localStorage.setItem(AUTH_EMAIL_KEY, session.user.email);
+            
+            // Récupérer les offres de l'utilisateur depuis Supabase
+            const { data: userOffers, error: offersError } = await supabaseClient
+                .from('user_offers')
+                .select('offre, expiration')
+                .eq('email', session.user.email)
+                .order('expiration', { ascending: false })
+                .limit(1);
+            
+            if (!offersError && userOffers && userOffers.length > 0) {
+                const offer = userOffers[0];
+                const expDate = new Date(offer.expiration);
+                if (expDate > new Date()) {
+                    currentUser.offre = offer.offre;
+                    currentUser.expiration = expDate;
+                    localStorage.setItem("fasoconcours_email", session.user.email);
+                    localStorage.setItem("fasoconcours_offre", offer.offre);
+                    localStorage.setItem("fasoconcours_expiration", offer.expiration);
+                    showAccessStatus();
+                    console.log("✅ Session restaurée (Supabase)");
+                }
+            }
+        }
+    } catch (err) {
+        console.error("❌ Erreur lors de la vérification de session:", err);
     }
 }
 
@@ -857,29 +875,61 @@ async function signup() {
         return alert('Veuillez remplir tous les champs d\'inscription');
     }
 
-    const users = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
-    const exists = users.some((u) => (u.email || '').toLowerCase() === email);
-    if (exists) {
-        return alert('❌ Cet e-mail est déjà inscrit. Connectez-vous.');
+    if (password.length < 6) {
+        return alert('Le mot de passe doit avoir au moins 6 caractères');
     }
 
-    users.push({
-        nom,
-        prenom,
-        whatsapp,
-        email,
-        password,
-        createdAt: new Date().toISOString()
-    });
-    localStorage.setItem(AUTH_USERS_KEY, JSON.stringify(users));
+    if (!supabaseClient) {
+        return alert('❌ Service d\'authentification indisponible');
+    }
 
-    currentUser.email = email;
-    localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
-    localStorage.setItem(AUTH_EMAIL_KEY, email);
+    try {
+        // Créer l'utilisateur dans Supabase Auth
+        const { data: { user }, error: signUpError } = await supabaseClient.auth.signUp({
+            email: email,
+            password: password
+        });
 
-    alert('✅ Inscription réussie !');
-    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
-    location.href = returnUrl;
+        if (signUpError) {
+            if (signUpError.message.includes('already registered')) {
+                return alert('❌ Cet e-mail est déjà inscrit. Connectez-vous.');
+            }
+            return alert('❌ Erreur inscription: ' + signUpError.message);
+        }
+
+        if (!user) {
+            return alert('❌ Erreur lors de la création du compte');
+        }
+
+        // Sauvegarder les infos utilisateur supplémentaires dans la table users
+        const { error: insertError } = await supabaseClient
+            .from('users')
+            .insert([
+                {
+                    email: email,
+                    nom: nom,
+                    prenom: prenom,
+                    whatsapp: whatsapp,
+                    created_at: new Date().toISOString()
+                }
+            ]);
+
+        if (insertError) {
+            console.warn('⚠️ Profil utilisateur non sauvegardé:', insertError.message);
+        }
+
+        currentUser.email = email;
+        localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
+        localStorage.setItem(AUTH_EMAIL_KEY, email);
+
+        alert('✅ Inscription réussie ! Vous pouvez maintenant vous connecter.');
+        // Rediriger vers la page de connexion
+        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+        location.href = `auth.html?mode=login&return=${encodeURIComponent(returnUrl)}`;
+    } catch (err) {
+        console.error('❌ Erreur inscription:', err);
+        alert('❌ Erreur lors de l\'inscription: ' + err.message);
+    }
 }
 
 async function login() {
@@ -891,32 +941,58 @@ async function login() {
 
     if (!email || !password) return alert('Veuillez remplir les champs de connexion');
 
-    const users = JSON.parse(localStorage.getItem(AUTH_USERS_KEY) || '[]');
-    const user = users.find((u) => (u.email || '').toLowerCase() === email && (u.password || '') === password);
-
-    if (!user) {
-        return alert('❌ Email ou mot de passe incorrect');
+    if (!supabaseClient) {
+        return alert('❌ Service d\'authentification indisponible');
     }
 
-    currentUser.email = email;
-    localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
-    localStorage.setItem(AUTH_EMAIL_KEY, email);
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
 
-    // Restaurer une offre active liée à cet email si elle existe.
-    const savedEmail = localStorage.getItem('fasoconcours_email');
-    const savedOffre = localStorage.getItem('fasoconcours_offre');
-    const savedExpiration = localStorage.getItem('fasoconcours_expiration');
-    if (savedEmail && savedOffre && savedExpiration && savedEmail.toLowerCase() === email) {
-        const expDate = new Date(savedExpiration);
-        if (expDate > new Date()) {
-            currentUser.offre = savedOffre;
-            currentUser.expiration = expDate;
+        if (error) {
+            if (error.message.includes('Invalid login credentials')) {
+                return alert('❌ Email ou mot de passe incorrect');
+            }
+            return alert('❌ Erreur connexion: ' + error.message);
         }
-    }
 
-    alert('✅ Connexion réussie !');
-    const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
-    location.href = returnUrl;
+        if (!session || !session.user) {
+            return alert('❌ Erreur lors de la connexion');
+        }
+
+        currentUser.email = session.user.email;
+        localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
+        localStorage.setItem(AUTH_EMAIL_KEY, session.user.email);
+
+        // Restaurer une offre active liée à cet email si elle existe
+        const { data: userOffers, error: offersError } = await supabaseClient
+            .from('user_offers')
+            .select('offre, expiration')
+            .eq('email', session.user.email)
+            .order('expiration', { ascending: false })
+            .limit(1);
+        
+        if (!offersError && userOffers && userOffers.length > 0) {
+            const offer = userOffers[0];
+            const expDate = new Date(offer.expiration);
+            if (expDate > new Date()) {
+                currentUser.offre = offer.offre;
+                currentUser.expiration = expDate;
+                localStorage.setItem("fasoconcours_email", session.user.email);
+                localStorage.setItem("fasoconcours_offre", offer.offre);
+                localStorage.setItem("fasoconcours_expiration", offer.expiration);
+            }
+        }
+
+        alert('✅ Connexion réussie !');
+        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+        location.href = returnUrl;
+    } catch (err) {
+        console.error('❌ Erreur connexion:', err);
+        alert('❌ Erreur lors de la connexion: ' + err.message);
+    }
 }
 
 async function accessWithCode(offreType) {
@@ -1007,6 +1083,25 @@ async function accessWithCode(offreType) {
         currentUser.email = email;
         currentUser.offre = codeData.offre;
         currentUser.expiration = expDate;
+        
+        // Sauvegarder l'offre dans Supabase (table user_offers) pour la rendre accessible partout
+        const { error: insertOfferError } = await supabaseClient
+            .from('user_offers')
+            .insert([
+                {
+                    email: email,
+                    offre: codeData.offre,
+                    expiration: codeData.date_expiration,
+                    code_used: code,
+                    activated_at: new Date().toISOString()
+                }
+            ]);
+        
+        if (insertOfferError) {
+            console.warn("⚠️ Offre non sauvegardée dans Supabase:", insertOfferError.message);
+        }
+        
+        // Aussi sauvegarder localement pour accès rapide
         localStorage.setItem("fasoconcours_email", email);
         localStorage.setItem("fasoconcours_offre", codeData.offre);
         localStorage.setItem("fasoconcours_expiration", codeData.date_expiration);
@@ -1092,15 +1187,45 @@ function initCarousel() {
     showNext();
 }
 
-function logout() {
-    localStorage.removeItem(AUTH_LOGGED_IN_KEY);
-    localStorage.removeItem(AUTH_EMAIL_KEY);
-    localStorage.removeItem("fasoconcours_email");
-    localStorage.removeItem("fasoconcours_offre");
-    localStorage.removeItem("fasoconcours_expiration");
-    currentUser = { email: null, offre: null, expiration: null };
-    alert("🔓 Déconnecté.");
-    location.reload();
+async function logout() {
+    if (!supabaseClient) {
+        localStorage.removeItem(AUTH_LOGGED_IN_KEY);
+        localStorage.removeItem(AUTH_EMAIL_KEY);
+        localStorage.removeItem("fasoconcours_email");
+        localStorage.removeItem("fasoconcours_offre");
+        localStorage.removeItem("fasoconcours_expiration");
+        currentUser = { email: null, offre: null, expiration: null };
+        alert("🔓 Déconnecté.");
+        location.reload();
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient.auth.signOut();
+        
+        if (error) {
+            console.warn("⚠️ Erreur déconnexion Supabase:", error.message);
+        }
+
+        localStorage.removeItem(AUTH_LOGGED_IN_KEY);
+        localStorage.removeItem(AUTH_EMAIL_KEY);
+        localStorage.removeItem("fasoconcours_email");
+        localStorage.removeItem("fasoconcours_offre");
+        localStorage.removeItem("fasoconcours_expiration");
+        currentUser = { email: null, offre: null, expiration: null };
+        alert("🔓 Déconnecté.");
+        location.reload();
+    } catch (err) {
+        console.error("❌ Erreur lors de la déconnexion:", err);
+        // Nettoyer de toute façon
+        localStorage.removeItem(AUTH_LOGGED_IN_KEY);
+        localStorage.removeItem(AUTH_EMAIL_KEY);
+        localStorage.removeItem("fasoconcours_email");
+        localStorage.removeItem("fasoconcours_offre");
+        localStorage.removeItem("fasoconcours_expiration");
+        currentUser = { email: null, offre: null, expiration: null };
+        location.reload();
+    }
 }
 
 // =======================
