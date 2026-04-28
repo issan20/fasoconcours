@@ -839,19 +839,28 @@ async function checkExistingSession() {
 
 function showAccessStatus() {
     const statusDiv = document.getElementById("accessStatus");
-    if (statusDiv) {
-        const loginLabel = currentUser.email ? `\n                <strong>✅ Connecté :</strong> ${currentUser.email}<br>` : '';
-        const offerLabel = currentUser.offre ? `\n                <strong>📦 Offre :</strong> ${getOffreName(currentUser.offre)}<br>` : '';
-        const expLabel = currentUser.expiration ? `\n                <strong>⏰ Valable jusqu'au :</strong> ${currentUser.expiration.toLocaleDateString('fr-FR')}` : '\n                <strong>📦 Offre :</strong> Aucune offre active';
-        statusDiv.innerHTML = `
-            <div style="background:#e8f5e9; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #0a7f3f;">
-                ${loginLabel}
-                ${offerLabel}
-                ${expLabel}
-                <button onclick="logout()" style="display:block; margin-top:10px; background:#f44336; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">Se déconnecter</button>
-            </div>
-        `;
+    if (!statusDiv) return;
+
+    // Si l'utilisateur n'est pas connecté, ne rien afficher (vide)
+    const authLogged = localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true';
+    const authEmail = localStorage.getItem(AUTH_EMAIL_KEY);
+    if (!authLogged || !authEmail) {
+        statusDiv.innerHTML = '';
+        return;
     }
+
+    const loginLabel = currentUser.email ? `\n                <strong>✅ Connecté :</strong> ${currentUser.email}<br>` : '';
+    const offerLabel = currentUser.offre ? `\n                <strong>📦 Offre :</strong> ${getOffreName(currentUser.offre)}<br>` : '';
+    const expLabel = currentUser.expiration ? `\n                <strong>⏰ Valable jusqu'au :</strong> ${currentUser.expiration.toLocaleDateString('fr-FR')}` : '';
+
+    statusDiv.innerHTML = `
+        <div style="background:#e8f5e9; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #0a7f3f;">
+            ${loginLabel}
+            ${offerLabel}
+            ${expLabel}
+            <button onclick="logout()" style="display:block; margin-top:10px; background:#f44336; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">Se déconnecter</button>
+        </div>
+    `;
 }
 
 function getOffreName(offreId) {
