@@ -45,12 +45,6 @@
     </div>
     
     <div id="quizInterface" style="display: none; margin-top: 30px;">
-        <div style="text-align: center; margin-bottom: 25px;">
-            <button id="btnQuizThematique" class="quiz-mode-btn" style="background: #2196f3; color: white; padding: 12px 25px; margin: 5px; border: none; border-radius: 5px; cursor: pointer;">
-                🧭 Ouvrir les rubriques de quiz
-            </button>
-        </div>
-        
         <div id="quizContent" style="background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <p style="text-align: center; color: #666;">✨ Cliquez sur le bouton ci-dessus pour voir les 5 rubriques ✨</p>
         </div>
@@ -70,7 +64,6 @@
         // Récupérer les éléments
         const btnAcces = document.getElementById("btnAccesQuiz");
         const quizInterface = document.getElementById("quizInterface");
-        const btnQuiz = document.getElementById("btnQuizThematique");
         const btnQuitQuiz = document.getElementById("btnQuitQuiz");
         const quizContent = document.getElementById("quizContent");
 
@@ -106,7 +99,6 @@
 
         window.openQuizDirect = ouvrirQuizSansBlocage;
         window.openQuizSansBlocage = ouvrirQuizSansBlocage;
-        window.openQuizThematic = ouvrirQuizSansBlocage;
 
         // Bouton d'accès principal
         if (btnAcces) {
@@ -159,14 +151,6 @@
             }
         });
         
-        // Bouton Quiz par thématique
-        if (btnQuiz) {
-            btnQuiz.onclick = function(event) {
-                event.preventDefault();
-                ouvrirQuizSansBlocage();
-            };
-        }
-
         if (btnQuitQuiz) {
             btnQuitQuiz.onclick = function() {
                 const ok = window.confirm("Voulez-vous vraiment quitter le quiz ?");
