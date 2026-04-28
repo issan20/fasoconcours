@@ -134,15 +134,25 @@
                         if (savedOffre === 'quiz' || savedOffre === 'complet') {
                             quizInterface.style.display = "block";
                             console.log("✅ Accès quiz autorisé");
+                            return true; // Indique que l'accès a été accordé
                         }
                     }
                 }
             }
+            return false;
         }
         
         // Vérifier au chargement
-        checkAndShowQuizInterface();
+        const hasAccess = checkAndShowQuizInterface();
         updateQuizFocusMode();
+        
+        // ✅ SI l'accès est valide, afficher automatiquement le contenu du quiz
+        if (hasAccess && quizContent) {
+            quizContent.innerHTML = '<p style="text-align:center; color: #666;">✨ Chargement des rubriques... ✨</p>';
+            if (typeof showQuizThematique === 'function') {
+                setTimeout(showQuizThematique, 300);
+            }
+        }
         
         // Écouter les changements de localStorage
         window.addEventListener('storage', function(e) {

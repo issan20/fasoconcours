@@ -11,9 +11,13 @@ let currentUser = {
     expiration: null
 };
 
+// Storage keys
 const AUTH_USERS_KEY = 'fasoconcours_users';
 const AUTH_LOGGED_IN_KEY = 'fasoconcours_auth_logged_in';
 const AUTH_EMAIL_KEY = 'fasoconcours_auth_email';
+const OFFER_EMAIL_KEY = 'fasoconcours_email';
+const OFFER_KEY = 'fasoconcours_offre';
+const OFFER_EXPIRATION_KEY = 'fasoconcours_expiration';
 
 // =======================
 // INITIALISATION
@@ -792,6 +796,8 @@ function showPreview() {
 async function checkExistingSession() {
     if (!supabaseClient) {
         console.warn("⚠️ Supabase non initialisé");
+        // Essayer de restaurer depuis localStorage en fallback
+        restoreSessionFromLocalStorage();
         return;
     }
 
@@ -800,6 +806,7 @@ async function checkExistingSession() {
         
         if (error) {
             console.warn("⚠️ Erreur vérification session:", error.message);
+            restoreSessionFromLocalStorage();
             return;
         }
         
@@ -822,19 +829,43 @@ async function checkExistingSession() {
                 if (expDate > new Date()) {
                     currentUser.offre = offer.offre;
                     currentUser.expiration = expDate;
-                    localStorage.setItem("fasoconcours_email", session.user.email);
-                    localStorage.setItem("fasoconcours_offre", offer.offre);
-                    localStorage.setItem("fasoconcours_expiration", offer.expiration);
+                    localStorage.setItem(OFFER_EMAIL_KEY, session.user.email);
+                    localStorage.setItem(OFFER_KEY, offer.offre);
+                    localStorage.setItem(OFFER_EXPIRATION_KEY, offer.expiration);
                     showAccessStatus();
                     console.log("✅ Session restaurée (Supabase)");
                 }
+            } else {
+                // Pas d'offre trouvée, restaurer depuis localStorage si disponible
+                restoreSessionFromLocalStorage();
             }
+        } else {
+            // Pas de session Supabase, essayer localStorage
+            restoreSessionFromLocalStorage();
         }
     } catch (err) {
         console.error("❌ Erreur lors de la vérification de session:", err);
+        restoreSessionFromLocalStorage();
     }
     // Afficher le statut même si aucune session restaurée (utile sur mobile)
     try { showAccessStatus(); } catch (e) { /* ignore */ }
+}
+
+// Restaurer la session depuis localStorage (fallback)
+function restoreSessionFromLocalStorage() {
+    const email = localStorage.getItem(OFFER_EMAIL_KEY);
+    const offre = localStorage.getItem(OFFER_KEY);
+    const expiration = localStorage.getItem(OFFER_EXPIRATION_KEY);
+    
+    if (email && offre && expiration) {
+        const expDate = new Date(expiration);
+        if (expDate > new Date()) {
+            currentUser.email = email;
+            currentUser.offre = offre;
+            currentUser.expiration = expDate;
+            console.log("✅ Session restaurée (localStorage)");
+        }
+    }
 }
 
 function showAccessStatus() {
@@ -1019,7 +1050,37 @@ async function accessWithCode(offreType) {
 
     currentUser.email = authEmail;
 
-    if (currentUser.email && currentUser.expiration > new Date()) {
+    // ✅ NOUVELLE LOGIQUE: Vérifier d'abord si l'utilisateur a déjà un accès valide en local
+    const savedOffre = localStorage.getItem(OFFER_KEY);
+    const savedExpiration = localStorage.getItem(OFFER_EXPIRATION_KEY);
+    const savedEmail = localStorage.getItem(OFFER_EMAIL_KEY);
+
+    if (savedEmail && savedOffre && savedExpiration) {
+        const expDate = new Date(savedExpiration);
+        const emailMatch = savedEmail.toLowerCase() === authEmail.toLowerCase();
+        const isExpired = expDate <= new Date();
+
+        // Si l'offre est valide et pas expirée
+        if (emailMatch && !isExpired) {
+            // Vérifier que l'accès demandé est compatible avec l'offre
+            const hasAccess = 
+                savedOffre === 'complet' || 
+                (offreType === 'formation' && savedOffre === 'formation') ||
+                (offreType === 'quiz' && savedOffre === 'quiz');
+
+            if (hasAccess) {
+                console.log(`✅ Accès direct (session valide): ${savedOffre}`);
+                // Restaurer currentUser depuis localStorage
+                currentUser.offre = savedOffre;
+                currentUser.expiration = expDate;
+                unlockContent(offreType);
+                return;
+            }
+        }
+    }
+
+    // ✅ Si on arrive ici, il faut vérifier/valider un code
+    if (currentUser.email && currentUser.expiration && currentUser.expiration > new Date()) {
         if (offreType === 'complet' && currentUser.offre !== 'complet') {
             alert("❌ Votre offre actuelle n'est pas le pack complet.");
             return;
@@ -1041,6 +1102,7 @@ async function accessWithCode(offreType) {
         return;
     }
 
+    // ✅ Demander le code seulement si pas d'accès valide trouvé
     const promptLabel = offreType === 'complet' ? '🔑 Entrez votre code PACK COMPLET :' : '🔑 Entrez votre code d\'accès :';
     let code = prompt(promptLabel);
     if (!code) return;
@@ -1095,7 +1157,7 @@ async function accessWithCode(offreType) {
         currentUser.offre = codeData.offre;
         currentUser.expiration = expDate;
         
-        // Sauvegarder l'offre dans Supabase (table user_offers) pour la rendre accessible partout
+        // ✅ Sauvegarder l'offre dans Supabase (table user_offers) pour la rendre accessible partout
         const { error: insertOfferError } = await supabaseClient
             .from('user_offers')
             .insert([
@@ -1112,12 +1174,12 @@ async function accessWithCode(offreType) {
             console.warn("⚠️ Offre non sauvegardée dans Supabase:", insertOfferError.message);
         }
         
-        // Aussi sauvegarder localement pour accès rapide
-        localStorage.setItem("fasoconcours_email", email);
-        localStorage.setItem("fasoconcours_offre", codeData.offre);
-        localStorage.setItem("fasoconcours_expiration", codeData.date_expiration);
+        // ✅ Sauvegarder localement avec les bonnes clés
+        localStorage.setItem(OFFER_EMAIL_KEY, email);
+        localStorage.setItem(OFFER_KEY, codeData.offre);
+        localStorage.setItem(OFFER_EXPIRATION_KEY, codeData.date_expiration);
         
-        if (offreType === 'complet') {
+        if (codeData.offre === 'complet') {
             alert("✅ Code PACK COMPLET activé ! Vous pouvez maintenant accéder à la Formation complète et aux Quiz.");
         } else {
             alert("✅ Code activé !");
@@ -1132,27 +1194,17 @@ async function accessWithCode(offreType) {
 }
 
 function unlockContent(offreType) {
-    if (offreType === 'formation') {
-        // Ouvrir la formation complète en modal plein écran
-        loadPDFInModal('livre-complet.pdf', '📚 Formation complète - Encyclopédie des concours');
-        
-        // Optionnel : afficher aussi le conteneur dans la page
-        const fullContent = document.getElementById("fullContent");
-        if (fullContent) {
-            fullContent.style.display = "block";
-        }
-    } else if (offreType === 'quiz') {
-        const quizInterface = document.getElementById("quizInterface");
-        if (quizInterface) {
-            quizInterface.style.display = "block";
-            if (typeof showQuizThematique === 'function') showQuizThematique();
-        }
-    } else if (offreType === 'complet') {
+    // ✅ LOGIQUE SIMPLIFIÉE: Si l'offre est "complet", débloquer TOUT sans demander de code
+    // Sinon, débloquer selon le type demandé
+    const offreToUnlock = currentUser.offre || offreType;
+
+    if (offreToUnlock === 'complet' || offreType === 'complet') {
+        // Pack complet: débloquer formation ET quiz
         const hasFormationSurface = !!document.getElementById('pdfModal') || !!document.getElementById('fullContent');
         const hasQuizSurface = !!document.getElementById('quizInterface');
 
         if (hasFormationSurface) {
-            loadPDFInModal('livre-complet.pdf', '⭐ Pack complet - Formation');
+            loadPDFInModal('livre-complet.pdf', '⭐ Pack complet - Formation complète');
             const fullContent = document.getElementById("fullContent");
             if (fullContent) {
                 fullContent.style.display = "block";
@@ -1167,6 +1219,7 @@ function unlockContent(offreType) {
             }
         }
 
+        // Si on est sur une seule page, proposer d'aller sur l'autre
         if (hasFormationSurface && !hasQuizSurface) {
             if (confirm("✅ Pack complet activé. Voulez-vous aller sur la page Quiz pour accéder à la partie QCM/Examens ?")) {
                 location.href = 'tester.html';
@@ -1178,6 +1231,20 @@ function unlockContent(offreType) {
         } else if (!hasFormationSurface && !hasQuizSurface) {
             const versFormation = confirm("✅ Pack complet activé. Cliquez sur OK pour commencer par la Formation, ou Annuler pour aller aux Quiz.");
             location.href = versFormation ? 'se-former.html' : 'tester.html';
+        }
+    } else if (offreToUnlock === 'formation' || offreType === 'formation') {
+        // Formation seule
+        loadPDFInModal('livre-complet.pdf', '📚 Formation complète - Encyclopédie des concours');
+        const fullContent = document.getElementById("fullContent");
+        if (fullContent) {
+            fullContent.style.display = "block";
+        }
+    } else if (offreToUnlock === 'quiz' || offreType === 'quiz') {
+        // Quiz seul
+        const quizInterface = document.getElementById("quizInterface");
+        if (quizInterface) {
+            quizInterface.style.display = "block";
+            if (typeof showQuizThematique === 'function') showQuizThematique();
         }
     }
 }
@@ -1202,9 +1269,9 @@ async function logout() {
     if (!supabaseClient) {
         localStorage.removeItem(AUTH_LOGGED_IN_KEY);
         localStorage.removeItem(AUTH_EMAIL_KEY);
-        localStorage.removeItem("fasoconcours_email");
-        localStorage.removeItem("fasoconcours_offre");
-        localStorage.removeItem("fasoconcours_expiration");
+        localStorage.removeItem(OFFER_EMAIL_KEY);
+        localStorage.removeItem(OFFER_KEY);
+        localStorage.removeItem(OFFER_EXPIRATION_KEY);
         currentUser = { email: null, offre: null, expiration: null };
         alert("🔓 Déconnecté.");
         location.reload();
@@ -1220,9 +1287,9 @@ async function logout() {
 
         localStorage.removeItem(AUTH_LOGGED_IN_KEY);
         localStorage.removeItem(AUTH_EMAIL_KEY);
-        localStorage.removeItem("fasoconcours_email");
-        localStorage.removeItem("fasoconcours_offre");
-        localStorage.removeItem("fasoconcours_expiration");
+        localStorage.removeItem(OFFER_EMAIL_KEY);
+        localStorage.removeItem(OFFER_KEY);
+        localStorage.removeItem(OFFER_EXPIRATION_KEY);
         currentUser = { email: null, offre: null, expiration: null };
         alert("🔓 Déconnecté.");
         location.reload();
@@ -1231,9 +1298,9 @@ async function logout() {
         // Nettoyer de toute façon
         localStorage.removeItem(AUTH_LOGGED_IN_KEY);
         localStorage.removeItem(AUTH_EMAIL_KEY);
-        localStorage.removeItem("fasoconcours_email");
-        localStorage.removeItem("fasoconcours_offre");
-        localStorage.removeItem("fasoconcours_expiration");
+        localStorage.removeItem(OFFER_EMAIL_KEY);
+        localStorage.removeItem(OFFER_KEY);
+        localStorage.removeItem(OFFER_EXPIRATION_KEY);
         currentUser = { email: null, offre: null, expiration: null };
         location.reload();
     }
