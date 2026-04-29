@@ -76,6 +76,7 @@ if ('serviceWorker' in navigator) {
         if (!banner) return;
         banner.hidden = true;
         banner.setAttribute('aria-hidden', 'true');
+        banner.remove();
     };
 
     const showBanner = () => {
@@ -90,38 +91,21 @@ if ('serviceWorker' in navigator) {
         showBanner();
     });
 
-    if (installBtn) {
-        installBtn.addEventListener('click', async () => {
-            if (!deferredPrompt) return;
-            deferredPrompt.prompt();
-            const choice = await deferredPrompt.userChoice;
-            if (choice && choice.outcome === 'accepted') {
-                console.log('PWA installée par l’utilisateur');
-            } else {
-                console.log('L’utilisateur a refusé l’installation');
-            }
-            deferredPrompt = null;
-            hideBanner();
-        });
-    }
+    const dismissPwaBanner = (event) => {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        hideBanner(true);
+        return false;
+    };
 
     if (dismissBtn) {
-        dismissBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            hideBanner(true);
-        });
+        dismissBtn.addEventListener('click', dismissPwaBanner);
     }
 
-    if (banner) {
-        banner.addEventListener('click', (event) => {
-            const closeButton = event.target.closest('#pwaDismissBtn');
-            if (!closeButton) return;
-            event.preventDefault();
-            event.stopPropagation();
-            hideBanner(true);
-        });
-    }
+    window.dismissPwaBanner = dismissPwaBanner;
+    window.showPwaBanner = showBanner;
 
     window.addEventListener('appinstalled', () => {
         console.log('L’application a été installée');
