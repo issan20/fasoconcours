@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fasoconcours-v1';
+const CACHE_NAME = 'fasoconcours-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -24,8 +24,9 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => Promise.all(
       keys.map((key) => {
         if (key !== CACHE_NAME) return caches.delete(key);
+        return Promise.resolve();
       })
-    ))).then(() => self.clients.claim())
+    )).then(() => self.clients.claim())
   );
 });
 
