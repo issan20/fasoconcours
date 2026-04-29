@@ -418,6 +418,29 @@ footer p {
     overflow: hidden;
     z-index: 2000;
 }
+.pwa-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #d93025;
+    border-radius: 999px;
+    background: #fff1f0;
+    color: #d93025;
+    font-size: 1.4rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: 700;
+    padding: 0;
+    z-index: 1;
+}
+.pwa-close:hover {
+    background: #ffd9d6;
+}
 .pwa-install-banner .pwa-icon {
     width: 56px;
     height: 56px;
@@ -448,18 +471,11 @@ footer p {
     cursor: pointer;
     font-weight: 700;
 }
-.pwa-dismiss {
-    background: transparent;
-    border: none;
-    color: #444;
-    padding: 8px 10px;
-    cursor: pointer;
-}
-
 @media (max-width: 560px) {
     .pwa-install-banner {
         flex-direction: column;
         align-items: stretch;
+        padding-top: 42px;
     }
 
     .pwa-install-banner .pwa-icon {
@@ -472,7 +488,7 @@ footer p {
     }
 
     .pwa-btn,
-    .pwa-dismiss {
+    .pwa-close {
         flex: 1 1 0;
     }
 }

@@ -113,6 +113,16 @@ if ('serviceWorker' in navigator) {
         });
     }
 
+    if (banner) {
+        banner.addEventListener('click', (event) => {
+            const closeButton = event.target.closest('#pwaDismissBtn');
+            if (!closeButton) return;
+            event.preventDefault();
+            event.stopPropagation();
+            hideBanner(true);
+        });
+    }
+
     window.addEventListener('appinstalled', () => {
         console.log('L’application a été installée');
         hideBanner();
