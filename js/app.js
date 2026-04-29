@@ -62,6 +62,14 @@ if ('serviceWorker' in navigator) {
         return path === '/' || path.endsWith('index.html') || path === '';
     };
 
+    const isStandaloneMode = () => {
+        try {
+            return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+        } catch (error) {
+            return false;
+        }
+    };
+
     const isDismissed = () => {
         try {
             // Si on a fermé le banner, il ne revient que si l'utilisateur se reconnecte
@@ -75,6 +83,8 @@ if ('serviceWorker' in navigator) {
     };
 
     const canShowBanner = () => {
+        // Ne rien afficher dans l'application installée
+        if (isStandaloneMode()) return false;
         // Le banner ne s'affiche que sur la page d'accueil
         if (!isOnHomepage()) return false;
         // Et seulement s'il n'a pas été fermé OU après une nouvelle connexion
