@@ -52,10 +52,22 @@ if ('serviceWorker' in navigator) {
     const installBtn = document.getElementById('pwaInstallBtn');
     const dismissBtn = document.getElementById('pwaDismissBtn');
 
+    if (installBtn) installBtn.type = 'button';
+    if (dismissBtn) dismissBtn.type = 'button';
+
+    const hideBanner = () => {
+        if (!banner) return;
+        banner.hidden = true;
+        banner.setAttribute('aria-hidden', 'true');
+    };
+
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        if (banner) banner.hidden = false;
+        if (banner) {
+            banner.hidden = false;
+            banner.setAttribute('aria-hidden', 'false');
+        }
     });
 
     if (installBtn) {
@@ -69,19 +81,21 @@ if ('serviceWorker' in navigator) {
                 console.log('L’utilisateur a refusé l’installation');
             }
             deferredPrompt = null;
-            if (banner) banner.hidden = true;
+            hideBanner();
         });
     }
 
     if (dismissBtn) {
-        dismissBtn.addEventListener('click', () => {
-            if (banner) banner.hidden = true;
+        dismissBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            hideBanner();
         });
     }
 
     window.addEventListener('appinstalled', () => {
         console.log('L’application a été installée');
-        if (banner) banner.hidden = true;
+        hideBanner();
     });
 })();
 
