@@ -52,16 +52,33 @@ if ('serviceWorker' in navigator) {
     const installBtn = document.getElementById('pwaInstallBtn');
     const dismissBtn = document.getElementById('pwaDismissBtn');
     const DISMISSED_KEY = 'fasoconcours_pwa_banner_dismissed';
+    const SHOW_AFTER_LOGIN_KEY = 'fasoconcours_pwa_show_after_login';
 
     if (installBtn) installBtn.type = 'button';
     if (dismissBtn) dismissBtn.type = 'button';
 
+    const isOnHomepage = () => {
+        const path = window.location.pathname;
+        return path === '/' || path.endsWith('index.html') || path === '';
+    };
+
     const isDismissed = () => {
         try {
-            return localStorage.getItem(DISMISSED_KEY) === '1';
+            // Si on a fermé le banner, il ne revient que si l'utilisateur se reconnecte
+            const dismissed = localStorage.getItem(DISMISSED_KEY) === '1';
+            // Sauf si l'utilisateur vient de se connecter
+            const showAfterLogin = localStorage.getItem(SHOW_AFTER_LOGIN_KEY) === 'true';
+            return dismissed && !showAfterLogin;
         } catch (error) {
             return false;
         }
+    };
+
+    const canShowBanner = () => {
+        // Le banner ne s'affiche que sur la page d'accueil
+        if (!isOnHomepage()) return false;
+        // Et seulement s'il n'a pas été fermé OU après une nouvelle connexion
+        return !isDismissed();
     };
 
     const hideBanner = (persistDismissal = false) => {
@@ -80,15 +97,24 @@ if ('serviceWorker' in navigator) {
     };
 
     const showBanner = () => {
-        if (!banner || isDismissed()) return;
+        if (!banner || !canShowBanner()) return;
         banner.hidden = false;
         banner.setAttribute('aria-hidden', 'false');
+        // Nettoyer le flag après affichage
+        try {
+            localStorage.removeItem(SHOW_AFTER_LOGIN_KEY);
+        } catch (error) {
+            // Ignore storage failures
+        }
     };
 
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        showBanner();
+        // Afficher le banner seulement sur la page d'accueil
+        if (isOnHomepage()) {
+            showBanner();
+        }
     });
 
     if (installBtn) {
@@ -1104,6 +1130,7 @@ async function login() {
         currentUser.email = session.user.email;
         localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
         localStorage.setItem(AUTH_EMAIL_KEY, session.user.email);
+        localStorage.setItem('fasoconcours_pwa_show_after_login', 'true');
 
         // Restaurer une offre active liée à cet email si elle existe
         const { data: userOffers, error: offersError } = await supabaseClient
@@ -1369,6 +1396,8 @@ async function logout() {
         localStorage.removeItem(OFFER_EMAIL_KEY);
         localStorage.removeItem(OFFER_KEY);
         localStorage.removeItem(OFFER_EXPIRATION_KEY);
+        localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
+        localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
         alert("🔓 Déconnecté.");
         location.reload();
@@ -1387,6 +1416,8 @@ async function logout() {
         localStorage.removeItem(OFFER_EMAIL_KEY);
         localStorage.removeItem(OFFER_KEY);
         localStorage.removeItem(OFFER_EXPIRATION_KEY);
+        localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
+        localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
         alert("🔓 Déconnecté.");
         location.reload();
@@ -1398,6 +1429,8 @@ async function logout() {
         localStorage.removeItem(OFFER_EMAIL_KEY);
         localStorage.removeItem(OFFER_KEY);
         localStorage.removeItem(OFFER_EXPIRATION_KEY);
+        localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
+        localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
         location.reload();
     }
