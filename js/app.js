@@ -58,7 +58,7 @@ if ('serviceWorker' in navigator) {
 
     const isDismissed = () => {
         try {
-            return sessionStorage.getItem(DISMISSED_KEY) === '1';
+            return localStorage.getItem(DISMISSED_KEY) === '1';
         } catch (error) {
             return false;
         }
@@ -67,7 +67,7 @@ if ('serviceWorker' in navigator) {
     const hideBanner = (persistDismissal = false) => {
         if (persistDismissal) {
             try {
-                sessionStorage.setItem(DISMISSED_KEY, '1');
+                localStorage.setItem(DISMISSED_KEY, '1');
             } catch (error) {
                 // Ignore storage failures and still hide the banner.
             }
@@ -90,6 +90,25 @@ if ('serviceWorker' in navigator) {
         deferredPrompt = e;
         showBanner();
     });
+
+    if (installBtn) {
+        installBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            if (!deferredPrompt) return;
+
+            deferredPrompt.prompt();
+            const choice = await deferredPrompt.userChoice;
+
+            if (choice && choice.outcome === 'accepted') {
+                console.log('PWA installée par l’utilisateur');
+            } else {
+                console.log('L’utilisateur a refusé l’installation');
+            }
+
+            deferredPrompt = null;
+            hideBanner();
+        });
+    }
 
     const dismissPwaBanner = (event) => {
         if (event) {
