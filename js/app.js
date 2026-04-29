@@ -81,16 +81,34 @@ if ('serviceWorker' in navigator) {
         return !isDismissed();
     };
 
+    // Masquer le banner immédiatement s'il a été fermé ou si on n'est pas sur l'accueil
+    const initBannerVisibility = () => {
+        if (!banner) return;
+        if (!canShowBanner()) {
+            banner.style.display = 'none';
+            banner.remove();
+        }
+    };
+
+    // Initialiser au chargement du DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBannerVisibility);
+    } else {
+        initBannerVisibility();
+    }
+
     const hideBanner = (persistDismissal = false) => {
         if (persistDismissal) {
             try {
                 localStorage.setItem(DISMISSED_KEY, '1');
+                localStorage.removeItem(SHOW_AFTER_LOGIN_KEY);
             } catch (error) {
                 // Ignore storage failures and still hide the banner.
             }
         }
 
         if (!banner) return;
+        banner.style.display = 'none';
         banner.hidden = true;
         banner.setAttribute('aria-hidden', 'true');
         banner.remove();
@@ -111,8 +129,8 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        // Afficher le banner seulement sur la page d'accueil
-        if (isOnHomepage()) {
+        // Afficher le banner SEULEMENT sur la page d'accueil ET s'il n'a pas été fermé
+        if (canShowBanner()) {
             showBanner();
         }
     });
