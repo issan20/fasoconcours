@@ -1077,12 +1077,19 @@ async function signup() {
 
     try {
         // Créer l'utilisateur dans Supabase Auth
-        const { data: { user }, error: signUpError } = await supabaseClient.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
             email: email,
             password: password
         });
 
+        const user = signUpData?.user || null;
+        const session = signUpData?.session || null;
+
         if (signUpError) {
+            const signUpMsg = String(signUpError.message || '');
+            if (/rate\s*limit/i.test(signUpMsg) || /email\s*rate\s*limit\s*exceeded/i.test(signUpMsg)) {
+                return alert('❌ Trop de demandes d\'e-mail en ce moment. Réessayez dans quelques minutes.');
+            }
             if (signUpError.message.includes('already registered')) {
                 return alert('❌ Cet e-mail est déjà inscrit. Connectez-vous.');
             }
@@ -1110,14 +1117,22 @@ async function signup() {
             console.warn('⚠️ Profil utilisateur non sauvegardé:', insertError.message);
         }
 
+        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+
         currentUser.email = email;
-        // Ne pas marquer l'utilisateur comme connecté automatiquement —
-        // demander la confirmation par e-mail (évite la confirmation manuelle dans Supabase)
         localStorage.setItem(AUTH_EMAIL_KEY, email);
 
-        alert(`✅ Inscription réussie ! Un e‑mail de confirmation a été envoyé à ${email}.\nVeuillez confirmer votre adresse en cliquant sur le lien reçu (vérifiez le dossier Spam). Ensuite, connectez-vous.`);
-        // Rediriger vers la page de connexion (email pré-rempli)
-        const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
+        // Si une session est renvoyée, l'utilisateur est connecté immédiatement.
+        if (session && session.user) {
+            localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
+            localStorage.setItem('fasoconcours_pwa_show_after_login', 'true');
+            alert('✅ Inscription réussie ! Vous êtes connecté.');
+            location.href = returnUrl;
+            return;
+        }
+
+        // Fallback si l'instance exige encore une validation d'e-mail.
+        alert(`✅ Inscription réussie pour ${email}. Si la connexion échoue immédiatement, désactivez la confirmation d'e-mail dans Supabase (Auth > Providers > Email).`);
         location.href = `auth.html?mode=login&return=${encodeURIComponent(returnUrl)}`;
     } catch (err) {
         console.error('❌ Erreur inscription:', err);
