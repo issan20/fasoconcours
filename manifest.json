@@ -1,0 +1,21 @@
+{
+  "name": "FasoConcours",
+  "short_name": "FasoConcours",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a7f3f",
+  "description": "Préparez efficacement vos concours au Burkina Faso - quiz et formation.",
+  "icons": [
+    {
+      "src": "/assets/logofasoconcours.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/logofasoconcours.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

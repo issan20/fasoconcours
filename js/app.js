@@ -36,6 +36,55 @@ document.addEventListener("DOMContentLoaded", () => {
     setupAccessButtons();
 });
 
+// Enregistrer le Service Worker pour support PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker enregistré:', reg.scope))
+            .catch(err => console.warn('Échec enregistrement SW:', err));
+    });
+}
+
+// PWA: gestion de la bannière d'installation (beforeinstallprompt)
+(() => {
+    let deferredPrompt = null;
+    const banner = document.getElementById('pwaInstallBanner');
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaDismissBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (banner) banner.hidden = false;
+    });
+
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const choice = await deferredPrompt.userChoice;
+            if (choice && choice.outcome === 'accepted') {
+                console.log('PWA installée par l’utilisateur');
+            } else {
+                console.log('L’utilisateur a refusé l’installation');
+            }
+            deferredPrompt = null;
+            if (banner) banner.hidden = true;
+        });
+    }
+
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            if (banner) banner.hidden = true;
+        });
+    }
+
+    window.addEventListener('appinstalled', () => {
+        console.log('L’application a été installée');
+        if (banner) banner.hidden = true;
+    });
+})();
+
 function setupAccessButtons() {
     const bindOfferButton = (buttonId, offreType) => {
         const btn = document.getElementById(buttonId);
