@@ -51,23 +51,43 @@ if ('serviceWorker' in navigator) {
     const banner = document.getElementById('pwaInstallBanner');
     const installBtn = document.getElementById('pwaInstallBtn');
     const dismissBtn = document.getElementById('pwaDismissBtn');
+    const DISMISSED_KEY = 'fasoconcours_pwa_banner_dismissed';
 
     if (installBtn) installBtn.type = 'button';
     if (dismissBtn) dismissBtn.type = 'button';
 
-    const hideBanner = () => {
+    const isDismissed = () => {
+        try {
+            return sessionStorage.getItem(DISMISSED_KEY) === '1';
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const hideBanner = (persistDismissal = false) => {
+        if (persistDismissal) {
+            try {
+                sessionStorage.setItem(DISMISSED_KEY, '1');
+            } catch (error) {
+                // Ignore storage failures and still hide the banner.
+            }
+        }
+
         if (!banner) return;
         banner.hidden = true;
         banner.setAttribute('aria-hidden', 'true');
     };
 
+    const showBanner = () => {
+        if (!banner || isDismissed()) return;
+        banner.hidden = false;
+        banner.setAttribute('aria-hidden', 'false');
+    };
+
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        if (banner) {
-            banner.hidden = false;
-            banner.setAttribute('aria-hidden', 'false');
-        }
+        showBanner();
     });
 
     if (installBtn) {
@@ -89,7 +109,7 @@ if ('serviceWorker' in navigator) {
         dismissBtn.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
-            hideBanner();
+            hideBanner(true);
         });
     }
 
