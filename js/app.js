@@ -1142,65 +1142,85 @@ async function signup() {
 
 async function login() {
     const emailRaw = document.getElementById('loginEmail')?.value || document.getElementById('email')?.value;
-    const passwordRaw = document.getElementById('loginPassword')?.value || document.getElementById('password')?.value;
+    const codeRaw = document.getElementById('loginCode')?.value || document.getElementById('code')?.value;
 
     const email = emailRaw ? emailRaw.toLowerCase().trim() : '';
-    const password = passwordRaw ? passwordRaw.trim() : '';
+    const code = codeRaw ? codeRaw.toUpperCase().trim() : '';
 
-    if (!email || !password) return alert('Veuillez remplir les champs de connexion');
+    if (!email || !code) return alert('Veuillez remplir l\'e-mail et le code d\'accès');
 
     if (!supabaseClient) {
         return alert('❌ Service d\'authentification indisponible');
     }
 
     try {
-        const { data: { session }, error } = await supabaseClient.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
+        const { data: codeData, error } = await supabaseClient
+            .from('codes')
+            .select('*')
+            .eq('code', code)
+            .maybeSingle();
 
-        if (error) {
-            if (error.message.includes('Invalid login credentials')) {
-                return alert('❌ Email ou mot de passe incorrect');
-            }
-            return alert('❌ Erreur connexion: ' + error.message);
+        if (error || !codeData) {
+            return alert('❌ Code invalide');
         }
 
-        if (!session || !session.user) {
-            return alert('❌ Erreur lors de la connexion');
+        if (codeData.email && codeData.email.toLowerCase() !== email) {
+            return alert('❌ Ce code est déjà lié à un autre e-mail');
         }
 
-        currentUser.email = session.user.email;
+        const expDate = new Date(codeData.date_expiration);
+        if (expDate <= new Date()) {
+            return alert('❌ Code expiré');
+        }
+
+        currentUser.email = email;
+        currentUser.offre = codeData.offre;
+        currentUser.expiration = expDate;
+
         localStorage.setItem(AUTH_LOGGED_IN_KEY, 'true');
-        localStorage.setItem(AUTH_EMAIL_KEY, session.user.email);
+        localStorage.setItem(AUTH_EMAIL_KEY, email);
         localStorage.setItem('fasoconcours_pwa_show_after_login', 'true');
+        localStorage.setItem(OFFER_EMAIL_KEY, email);
+        localStorage.setItem(OFFER_KEY, codeData.offre);
+        localStorage.setItem(OFFER_EXPIRATION_KEY, codeData.date_expiration);
 
-        // Restaurer une offre active liée à cet email si elle existe
-        const { data: userOffers, error: offersError } = await supabaseClient
-            .from('user_offers')
-            .select('offre, expiration')
-            .eq('email', session.user.email)
-            .order('expiration', { ascending: false })
-            .limit(1);
-        
-        if (!offersError && userOffers && userOffers.length > 0) {
-            const offer = userOffers[0];
-            const expDate = new Date(offer.expiration);
-            if (expDate > new Date()) {
-                currentUser.offre = offer.offre;
-                currentUser.expiration = expDate;
-                localStorage.setItem("fasoconcours_email", session.user.email);
-                localStorage.setItem("fasoconcours_offre", offer.offre);
-                localStorage.setItem("fasoconcours_expiration", offer.expiration);
+        if (!codeData.email) {
+            const { error: updateError } = await supabaseClient
+                .from('codes')
+                .update({
+                    email: email,
+                    is_active: true,
+                    date_activation: new Date().toISOString()
+                })
+                .eq('code', code);
+
+            if (updateError) {
+                console.warn('⚠️ Le code a été validé localement mais pas lié dans Supabase:', updateError.message);
             }
         }
 
-        alert('✅ Connexion réussie !');
+        const { error: insertOfferError } = await supabaseClient
+            .from('user_offers')
+            .insert([
+                {
+                    email: email,
+                    offre: codeData.offre,
+                    expiration: codeData.date_expiration,
+                    code_used: code,
+                    activated_at: new Date().toISOString()
+                }
+            ]);
+
+        if (insertOfferError) {
+            console.warn('⚠️ Offre non sauvegardée dans Supabase:', insertOfferError.message);
+        }
+
+        alert('✅ Accès validé !');
         const returnUrl = new URLSearchParams(window.location.search).get('return') || 'index.html';
         location.href = returnUrl;
     } catch (err) {
         console.error('❌ Erreur connexion:', err);
-        alert('❌ Erreur lors de la connexion: ' + err.message);
+        alert('❌ Erreur lors de la vérification de l\'accès: ' + err.message);
     }
 }
 
@@ -1209,7 +1229,7 @@ async function accessWithCode(offreType) {
     const authEmail = localStorage.getItem(AUTH_EMAIL_KEY);
 
     if (!authLogged || !authEmail) {
-        alert('🔒 Veuillez vous connecter ou vous inscrire avant d\'accéder aux offres.');
+        alert('🔒 Veuillez saisir votre e-mail et votre code d\'accès pour continuer.');
         const currentPath = location.pathname.split('/').pop() || 'index.html';
         location.href = `auth.html?mode=login&return=${encodeURIComponent(currentPath)}`;
         return;

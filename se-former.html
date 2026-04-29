@@ -44,7 +44,7 @@
         <div class="header-corner-auth">
             <a href="auth.html?mode=login&return=se-former.html">Connexion</a>
             <span>/</span>
-            <a href="auth.html?mode=signup&return=se-former.html">Inscription</a>
+            <a href="auth.html?mode=login&return=se-former.html">Accès</a>
         </div>
     </div>
 </header>
@@ -102,36 +102,8 @@
 <script src="js/app.js?v=20260429a"></script>
 
 <script>
-// ✅ Auto-déverrouiller la formation si l'utilisateur a un accès valide
+// ✅ Pas d'auto-déverrouillage : l'utilisateur doit cliquer sur le bouton "Accéder avec mon code"
 document.addEventListener("DOMContentLoaded", function() {
-    const fullContent = document.getElementById("fullContent");
-    
-    // Vérifier si l'utilisateur a un accès actif
-    const savedEmail = localStorage.getItem("fasoconcours_email");
-    const savedOffre = localStorage.getItem("fasoconcours_offre");
-    const savedExpiration = localStorage.getItem("fasoconcours_expiration");
-    
-    if (savedEmail && savedOffre && savedExpiration) {
-        const expDate = new Date(savedExpiration);
-        if (expDate > new Date()) {
-            if (savedOffre === 'formation' || savedOffre === 'complet') {
-                console.log("✅ Accès formation autorisé");
-                
-                // Auto-unlock: charger le PDF
-                if (typeof loadPDFInModal === 'function') {
-                    setTimeout(() => {
-                        loadPDFInModal('livre-complet.pdf', '📚 Formation complète - Encyclopédie des concours');
-                    }, 500);
-                }
-                
-                // Afficher aussi le conteneur
-                if (fullContent) {
-                    fullContent.style.display = "block";
-                }
-            }
-        }
-    }
-    
     // Écouter les changements de localStorage pour mettre à jour l'affichage
     window.addEventListener('storage', function(e) {
         if (e.key === 'fasoconcours_offre' || e.key === 'fasoconcours_expiration') {
