@@ -1325,6 +1325,50 @@ const seriesDiverses = {
                                                           "31 mai 2019"
                                                       ],
                                           "correct":  2
+                                      },
+                                      {
+                                          "id":  2311,
+                                          "texte":  "Quelle date marque la suspension de l'importation du riz sur l'ensemble du territoire burkinabè?",
+                                          "options":  [
+                                                          "29 mars 2026",
+                                                          "29 avril 2026?",
+                                                          "29 mars 2025",
+                                                          "29 avril 2025"
+                                                      ],
+                                          "correct":  1
+                                      },
+                                      {
+                                          "id":  2312,
+                                          "texte":  "Qui est le premier ministre malien?",
+                                          "options":  [
+                                                          "Abdoulaye Maïga",
+                                                          "Abdoulaye Konaté",
+                                                          "Adoul Aziz Maïga",
+                                                          "Abdoul Aziz Konaté"
+                                                      ],
+                                          "correct":  0
+                                      },
+                                      {
+                                          "id":  2313,
+                                          "texte":  "Quelle médaille la bodybuildeuse Safoura Compaoré a remporté lors du concours IFBB Miss & Equinix International organisé en Côte d'Ivoire le 9 février 2026?",
+                                          "options":  [
+                                                          "argent",
+                                                          "bronze",
+                                                          "dimant",
+                                                          "or"
+                                                      ],
+                                          "correct":  3
+                                      },
+                                      {
+                                          "id":  2314,
+                                          "texte":  "A quelle date est survenu le décès du général de corps d'armée malien Sadio Camara, lors de l'attaque terroriste visant son domicile à Kati?",
+                                          "options":  [
+                                                          "24 avril 2026",
+                                                          "25 avril 2026",
+                                                          "26 avril 2026",
+                                                          "27 avril 2026"
+                                                      ],
+                                          "correct":  1
                                       }
                                   ]
                 }
