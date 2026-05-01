@@ -23,21 +23,26 @@
     </div>
     <div class="header-right">
         <div class="header-corner-auth">
-            <a href="auth.html?mode=login&return=auth.html">Accès</a>
+            <a href="auth.html?mode=login&return=auth.html">Connexion</a>
         </div>
     </div>
 </header>
 
 <section class="hero">
     <h2>🔐 Accès au contenu</h2>
-    <p>Entrez votre e-mail puis votre code d'accès pour ouvrir vos contenus immédiatement.</p>
+    <p>Gérez votre accès et votre abonnement depuis cette page.</p>
 </section>
 
-<div id="accessStatus" style="max-width: 850px; margin: 0 auto;"></div>
-
 <section class="quiz-section" style="padding: 20px; max-width: 900px; margin: 0 auto;">
+    <!-- Section 1: Mon statut actuel (toujours visible) -->
+    <div id="statusSection" style="background:white; border-radius:10px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1); margin-bottom:20px;">
+        <h3>📊 Mon statut actuel</h3>
+        <div id="accessStatus"></div>
+    </div>
+
+    <!-- Section 2: Se connecter (masquée si connecté, visible si déconnecté) -->
     <div id="loginPanel" style="background:white; border-radius:10px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.1);">
-        <h3>Accéder au contenu</h3>
+        <h3>🔓 Se connecter pour accéder au contenu</h3>
         <div style="display:grid; grid-template-columns:1fr; gap:12px;">
             <input id="loginEmail" type="email" placeholder="E-mail" style="padding:10px; border:1px solid #ddd; border-radius:6px;">
             <input id="loginCode" type="text" placeholder="Code d'accès" style="padding:10px; border:1px solid #ddd; border-radius:6px; text-transform:uppercase;">
@@ -63,27 +68,6 @@
 
 <script src="js/app.js?v=20260429a"></script>
 <script>
-function hasValidStoredAccess() {
-    const authLogged = localStorage.getItem('fasoconcours_auth_logged_in') === 'true';
-    const authEmail = localStorage.getItem('fasoconcours_auth_email');
-    const savedEmail = localStorage.getItem('fasoconcours_email');
-    const savedOffre = localStorage.getItem('fasoconcours_offre');
-    const savedExpiration = localStorage.getItem('fasoconcours_expiration');
-
-    if (!authLogged || !authEmail || !savedEmail || !savedOffre || !savedExpiration) {
-        return false;
-    }
-
-    if (authEmail.toLowerCase() !== savedEmail.toLowerCase()) {
-        return false;
-    }
-
-    return new Date(savedExpiration) > new Date();
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    const params = new URLSearchParams(window.location.search);
-    const returnUrl = params.get('return') || 'index.html';
     const savedEmail = localStorage.getItem('fasoconcours_auth_email') || localStorage.getItem('fasoconcours_email');
 
     if (savedEmail) {
@@ -91,11 +75,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (emailInput) emailInput.value = savedEmail;
     }
 
-    if (hasValidStoredAccess()) {
-        location.href = returnUrl;
-        return;
-    }
-
+    // Ne pas rediriger si connecté: rester sur la page Connexion pour voir le statut et se déconnecter
     document.getElementById('loginEmail')?.focus();
 });
 </script>

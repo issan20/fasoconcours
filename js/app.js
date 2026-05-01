@@ -1020,19 +1020,31 @@ function restoreSessionFromLocalStorage() {
 
 function showAccessStatus() {
     const statusDiv = document.getElementById("accessStatus");
+    const loginPanel = document.getElementById("loginPanel");
+    
     if (!statusDiv) return;
 
-    // Si l'utilisateur n'est pas connecté, ne rien afficher (vide)
+    // Si l'utilisateur n'est pas connecté
     const authLogged = localStorage.getItem(AUTH_LOGGED_IN_KEY) === 'true';
     const authEmail = localStorage.getItem(AUTH_EMAIL_KEY);
+    
     if (!authLogged || !authEmail) {
-        statusDiv.innerHTML = '';
+        // Afficher message "pas connecté" et afficher le formulaire
+        statusDiv.innerHTML = `
+            <div style="background:#fff3cd; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #ffc107;">
+                <p style="margin:0; color:#666;">🔓 Vous n\'êtes pas connecté. Utilisez le formulaire ci-dessous pour accéder au contenu.</p>
+            </div>
+        `;
+        if (loginPanel) {
+            loginPanel.style.display = 'block';
+        }
         return;
     }
 
-    const loginLabel = currentUser.email ? `\n                <strong>✅ Connecté :</strong> ${currentUser.email}<br>` : '';
-    const offerLabel = currentUser.offre ? `\n                <strong>📦 Offre :</strong> ${getOffreName(currentUser.offre)}<br>` : '';
-    const expLabel = currentUser.expiration ? `\n                <strong>⏰ Valable jusqu'au :</strong> ${currentUser.expiration.toLocaleDateString('fr-FR')}` : '';
+    // Utilisateur connecté: afficher statut et masquer formulaire
+    const loginLabel = currentUser.email ? `<strong>✅ Connecté :</strong> ${currentUser.email}<br>` : '';
+    const offerLabel = currentUser.offre ? `<strong>📦 Offre :</strong> ${getOffreName(currentUser.offre)}<br>` : '';
+    const expLabel = currentUser.expiration ? `<strong>⏰ Valable jusqu'au :</strong> ${currentUser.expiration.toLocaleDateString('fr-FR')}` : '';
 
     statusDiv.innerHTML = `
         <div style="background:#e8f5e9; padding:15px; border-radius:10px; margin:10px 0; border-left:4px solid #0a7f3f;">
@@ -1042,6 +1054,11 @@ function showAccessStatus() {
             <button onclick="logout()" style="display:block; margin-top:10px; background:#f44336; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">Se déconnecter</button>
         </div>
     `;
+    
+    // Masquer le formulaire de connexion si on est sur la page auth.html
+    if (loginPanel) {
+        loginPanel.style.display = 'none';
+    }
 }
 
 function getOffreName(offreId) {
@@ -1406,19 +1423,7 @@ function unlockContent(offreType) {
             }
         }
 
-        // Si on est sur une seule page, proposer d'aller sur l'autre
-        if (hasFormationSurface && !hasQuizSurface) {
-            if (confirm("✅ Pack complet activé. Voulez-vous aller sur la page Quiz pour accéder à la partie QCM/Examens ?")) {
-                location.href = 'tester.html';
-            }
-        } else if (hasQuizSurface && !hasFormationSurface) {
-            if (confirm("✅ Pack complet activé. Voulez-vous aller sur la page Se former pour accéder au livre complet ?")) {
-                location.href = 'se-former.html';
-            }
-        } else if (!hasFormationSurface && !hasQuizSurface) {
-            const versFormation = confirm("✅ Pack complet activé. Cliquez sur OK pour commencer par la Formation, ou Annuler pour aller aux Quiz.");
-            location.href = versFormation ? 'se-former.html' : 'tester.html';
-        }
+        // Pas de bascule automatique ici: on débloque seulement la page courante.
     } else if (offreToUnlock === 'formation' || offreType === 'formation') {
         // Formation seule
         loadPDFInModal('livre-complet.pdf', '📚 Formation complète - Encyclopédie des concours');
@@ -1462,8 +1467,8 @@ async function logout() {
         localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
         localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
+        showAccessStatus();
         alert("🔓 Déconnecté.");
-        location.reload();
         return;
     }
 
@@ -1482,8 +1487,8 @@ async function logout() {
         localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
         localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
+        showAccessStatus();
         alert("🔓 Déconnecté.");
-        location.reload();
     } catch (err) {
         console.error("❌ Erreur lors de la déconnexion:", err);
         // Nettoyer de toute façon
@@ -1495,7 +1500,7 @@ async function logout() {
         localStorage.removeItem('fasoconcours_pwa_banner_dismissed');
         localStorage.removeItem('fasoconcours_pwa_show_after_login');
         currentUser = { email: null, offre: null, expiration: null };
-        location.reload();
+        showAccessStatus();
     }
 }
 
